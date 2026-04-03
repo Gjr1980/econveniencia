@@ -1104,6 +1104,7 @@ async function loadCompras(){
 
   // ── Vínculos Pendentes ──
   await loadVinculosPendentes();
+  loadVinculosConfirmados();
   $('nb-nf').textContent=abertas.length||'0';
 }
 
@@ -3488,6 +3489,154 @@ async function salvarCfg(){
 }
 function testWpp(){const n=$('cfg-whatsapp_dono')?.value||'não configurado';toast('Teste enviado para '+n+' ✓','#25d366')}
 function dl(blob,nome){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=nome;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
+
+// ═══ GERENCIAR VÍNCULOS APRENDIDOS ═══
+let _vinculosEditando = null;  // vínculo sendo editado no modal
+let _todosVinculos = [];       // cache para filtro
+
+async function loadVinculosConfirmados() {
+  const el = $('vinculos-confirmados-lista');
+  const rodape = $('vinculos-confirmados-rodape');
+  if (!el) return;
+  el.innerHTML = '<div class="empty"><span class="spin"></span> Carregando...</div>';
+
+  const { data, error } = await db.from('nf_equivalencias')
+    .select('*')
+    .eq('confirmado', true)
+    .order('nf_nome', { ascending: true });
+
+  if (error || !data) {
+    el.innerHTML = '<div class="empty">Erro ao carregar vínculos</div>';
+    return;
+  }
+
+  _todosVinculos = data;
+  renderVinculosConfirmados(_todosVinculos);
+  if (rodape) rodape.textContent = data.length + ' vínculo(s) cadastrado(s)';
+}
+
+function renderVinculosConfirmados(lista) {
+  const el = $('vinculos-confirmados-lista');
+  if (!el) return;
+  if (!lista.length) {
+    el.innerHTML = '<div class="empty">Nenhum vínculo aprendido ainda</div>';
+    return;
+  }
+  el.innerHTML = lista.map(v => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:.5px solid var(--bd)">
+      <div style="width:28px;height:28px;border-radius:50%;background:var(--gl);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2.5" style="width:13px;height:13px"><path d="M9 11l3 3L22 4"/></svg>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12px;font-weight:700;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${v.nf_nome || '—'}</div>
+        <div style="font-size:11px;color:var(--t2);margin-top:1px">
+          → ${v.estoque_nome || '—'}
+          <span style="color:var(--green);font-weight:600"> · Fator: ${v.fator_conversao || 1}x</span>
+          ${v.nf_ean ? ` · <span style="font-family:monospace;font-size:10px">EAN: ${v.nf_ean}</span>` : ''}
+        </div>
+      </div>
+      <button class="btn btn-ghost" onclick="abrirModalVinculo('${v.id}')" style="font-size:11px;padding:5px 10px;flex-shrink:0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar
+      </button>
+    </div>`).join('');
+}
+
+function filtrarVinculos(busca) {
+  if (!_todosVinculos.length) return;
+  const b = busca.toLowerCase().trim();
+  const filtrado = b ? _todosVinculos.filter(v =>
+    (v.nf_nome || '').toLowerCase().includes(b) ||
+    (v.estoque_nome || '').toLowerCase().includes(b) ||
+    (v.nf_ean || '').includes(b)
+  ) : _todosVinculos;
+  renderVinculosConfirmados(filtrado);
+}
+
+function abrirModalVinculo(id) {
+  const v = _todosVinculos.find(x => x.id === id);
+  if (!v) return;
+  _vinculosEditando = v;
+
+  $('mv-nf-nome').value = v.nf_nome || '';
+  $('mv-nf-ean').value = v.nf_ean || '(sem EAN)';
+  $('mv-fator').value = v.fator_conversao || 1;
+
+  // Popula select de produtos
+  const sel = $('mv-prod-sel');
+  sel.innerHTML = _vpEstoque.map(p =>
+    `<option value="${p.sku_ean}" ${p.sku_ean === v.estoque_ean ? 'selected' : ''}>${p.descricao}</option>`
+  ).join('');
+
+  atualizarPreviewFator();
+
+  $('modal-vinculo-ov').style.display = 'block';
+  $('modal-vinculo').style.display = 'block';
+}
+
+function fecharModalVinculo() {
+  $('modal-vinculo-ov').style.display = 'none';
+  $('modal-vinculo').style.display = 'none';
+  _vinculosEditando = null;
+}
+
+function atualizarPreviewFator() {
+  const fator = parseInt($('mv-fator').value) || 1;
+  const sel = $('mv-prod-sel');
+  const nomeProd = sel.options[sel.selectedIndex]?.text || '';
+  const preview = $('mv-fator-preview');
+  if (preview) {
+    preview.textContent = fator === 1
+      ? '1 unidade na NF = 1 unidade no estoque'
+      : `1 caixa na NF = ${fator} unidades no estoque`;
+  }
+}
+
+// Adiciona listeners dinâmicos ao abrir modal
+document.addEventListener('input', function(e) {
+  if (e.target.id === 'mv-fator' || e.target.id === 'mv-prod-sel') {
+    atualizarPreviewFator();
+  }
+});
+
+async function salvarEdicaoVinculo() {
+  if (!_vinculosEditando) return;
+  const fator = parseInt($('mv-fator').value) || 1;
+  const sel = $('mv-prod-sel');
+  const estoqueEan = sel.value;
+  const estoqueNome = sel.options[sel.selectedIndex]?.text || '';
+
+  const { error } = await db.from('nf_equivalencias').update({
+    fator_conversao: fator,
+    estoque_ean: estoqueEan,
+    estoque_nome: estoqueNome
+  }).eq('id', _vinculosEditando.id);
+
+  if (error) {
+    toast('Erro ao salvar: ' + error.message, 'var(--red)');
+    return;
+  }
+
+  toast('✓ Vínculo atualizado com sucesso!', 'var(--green)');
+  fecharModalVinculo();
+  await loadVinculosConfirmados();
+}
+
+async function excluirVinculo() {
+  if (!_vinculosEditando) return;
+  if (!confirm(`Excluir vínculo de "${_vinculosEditando.nf_nome}"? Ele precisará ser reaprendido na próxima NF.`)) return;
+
+  const { error } = await db.from('nf_equivalencias').delete().eq('id', _vinculosEditando.id);
+
+  if (error) {
+    toast('Erro ao excluir: ' + error.message, 'var(--red)');
+    return;
+  }
+
+  toast('Vínculo excluído', 'var(--amber)');
+  fecharModalVinculo();
+  await loadVinculosConfirmados();
+}
 
 // ═══ INIT — aguarda libs carregarem ═══
 function aguardarLibsEIniciar(tentativas) {
