@@ -592,6 +592,81 @@ tr:last-child td{border-bottom:none}
   </div>
 </div>
 
+<!-- MODAL CADASTRO RÁPIDO DE PRODUTO -->
+<div id="modal-prod-ov" onclick="fecharModalProd()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:700"></div>
+<div id="modal-prod" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:701;background:var(--card);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:min(96vw,500px);padding:24px;max-height:90vh;overflow-y:auto">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <div style="font-size:15px;font-weight:700;color:var(--tx)">Cadastrar Produto</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:2px" id="mp-sub">Produto da NF não encontrado no estoque</div>
+    </div>
+    <button onclick="fecharModalProd()" style="background:var(--c2);border:.5px solid var(--bd);border-radius:6px;padding:4px 10px;font-size:12px;color:var(--t2);cursor:pointer">✕ Fechar</button>
+  </div>
+
+  <!-- Info da NF (somente leitura) -->
+  <div style="background:var(--al);border:.5px solid var(--amber);border-radius:var(--r);padding:10px 12px;margin-bottom:16px;font-size:11px;color:var(--at)" id="mp-nf-info"></div>
+
+  <div class="field">
+    <label>SKU / EAN (código de barras)</label>
+    <input id="mp-sku" type="text" placeholder="Ex: 7891234567890">
+  </div>
+  <div class="field">
+    <label>Descrição do produto</label>
+    <input id="mp-desc" type="text" placeholder="Ex: CERVEJA BRAHMA 350ML LATA">
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div class="field">
+      <label>Categoria</label>
+      <select id="mp-cat">
+        <option value="bebidas">Bebidas</option>
+        <option value="alimentos">Alimentos</option>
+        <option value="limpeza">Limpeza</option>
+        <option value="higiene">Higiene</option>
+        <option value="outros">Outros</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Unidade</label>
+      <select id="mp-un">
+        <option value="un">un (unidade)</option>
+        <option value="cx">cx (caixa)</option>
+        <option value="kg">kg</option>
+        <option value="lt">lt (litro)</option>
+        <option value="pct">pct (pacote)</option>
+      </select>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <div class="field">
+      <label>Preço custo (R$)</label>
+      <input id="mp-custo" type="number" step="0.01" placeholder="0,00">
+    </div>
+    <div class="field">
+      <label>Preço venda (R$)</label>
+      <input id="mp-venda" type="number" step="0.01" placeholder="0,00">
+    </div>
+    <div class="field">
+      <label>Estoque mínimo</label>
+      <input id="mp-min" type="number" placeholder="0" value="5">
+    </div>
+  </div>
+  <div class="field">
+    <label>Fator de conversão (caixas → unidades)</label>
+    <div style="display:flex;align-items:center;gap:10px">
+      <input id="mp-fator" type="number" min="1" max="999" value="1" style="width:90px;font-size:16px;font-weight:700;text-align:center;padding:8px;border:.5px solid var(--b2);border-radius:var(--r);background:var(--c2)">
+      <div style="font-size:11px;color:var(--t2)" id="mp-fator-preview">1 unidade na NF = 1 unidade no estoque</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:20px">
+    <button class="btn btn-green" style="flex:1" onclick="salvarProdNF()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/></svg>
+      Cadastrar e vincular
+    </button>
+    <button class="btn btn-ghost" onclick="fecharModalProd()">Cancelar</button>
+  </div>
+</div>
+
 <!-- ═══ AVARIAS ═══ -->
 <div id="p-avarias" class="page">
   <div class="g4r">
@@ -1654,7 +1729,8 @@ function renderVpLista(itens) {
             <span style="background:rgba(255,255,255,.08);border-radius:4px;padding:2px 7px;font-size:10px;color:rgba(255,255,255,.5);font-family:monospace">EAN: ${ean}</span>
             <span style="background:rgba(255,255,255,.08);border-radius:4px;padding:2px 7px;font-size:10px;color:rgba(255,255,255,.5)">Qtd: ${qtd} ${uCom}</span>
             <span style="background:rgba(255,255,255,.08);border-radius:4px;padding:2px 7px;font-size:10px;color:rgba(255,255,255,.5)">R$ ${vl}</span>
-            ${temSugestao ? `<span style="background:rgba(55,138,221,.2);border-radius:4px;padding:2px 7px;font-size:10px;color:#378add">✨ Sugestão automática</span>` : `<span style="background:rgba(232,69,69,.15);border-radius:4px;padding:2px 7px;font-size:10px;color:#e84545">Sem sugestão — selecione manualmente</span>`}
+            ${temSugestao ? `<span style="background:rgba(55,138,221,.2);border-radius:4px;padding:2px 7px;font-size:10px;color:#378add">✨ Sugestão automática</span>` : `<span style="background:rgba(232,69,69,.15);border-radius:4px;padding:2px 7px;font-size:10px;color:#e84545">Sem sugestão — selecione manualmente</span>
+            <button onclick="abrirCadastroProduto(${i})" style="background:rgba(29,158,117,.15);border:.5px solid rgba(29,158,117,.4);border-radius:4px;padding:2px 8px;font-size:10px;color:var(--green);cursor:pointer;font-weight:600">+ Cadastrar produto</button>`}
           </div>
         </div>
       </div>
@@ -3636,6 +3712,151 @@ async function excluirVinculo() {
   toast('Vínculo excluído', 'var(--amber)');
   fecharModalVinculo();
   await loadVinculosConfirmados();
+}
+
+// ═══ CADASTRO RÁPIDO DE PRODUTO DA NF ═══
+let _mpItemIdx = null;  // índice do item no porteiro que está sendo cadastrado
+
+function abrirCadastroProduto(idx) {
+  _mpItemIdx = idx;
+  const it = _vpPendentes[idx];
+  if (!it) return;
+
+  // Pré-preenche com dados da NF
+  const ean = (it.cEAN || it.sku_ean || '').trim();
+  const nome = (it.xProd || it.produto_nome || '').trim();
+
+  document.getElementById('mp-sku').value = ean;
+  document.getElementById('mp-desc').value = nome;
+  document.getElementById('mp-custo').value = (it.vUnCom || 0).toFixed(2);
+  document.getElementById('mp-venda').value = '';
+  document.getElementById('mp-min').value = '5';
+  document.getElementById('mp-fator').value = '1';
+  document.getElementById('mp-sub').textContent = 'Produto da NF não encontrado no estoque';
+
+  // Info da NF
+  const qtd = it.qtd_xml || it.qCom || 0;
+  const vl = (it.vProd || 0).toFixed(2);
+  document.getElementById('mp-nf-info').innerHTML =
+    `<strong>Da NF:</strong> ${nome}` +
+    (ean ? ` &nbsp;|&nbsp; EAN: <code>${ean}</code>` : '') +
+    ` &nbsp;|&nbsp; Qtd: ${qtd} &nbsp;|&nbsp; Valor: R$ ${vl}`;
+
+  // Detecta fator automaticamente pelo nome
+  const fatorAuto = calcQtdReal ? (() => {
+    const m = nome.match(/C\/?(\d+)/i);
+    return m ? parseInt(m[1]) : 1;
+  })() : 1;
+  document.getElementById('mp-fator').value = fatorAuto;
+  atualizarPreviewFatorProd();
+
+  document.getElementById('modal-prod-ov').style.display = 'block';
+  document.getElementById('modal-prod').style.display = 'block';
+}
+
+function fecharModalProd() {
+  document.getElementById('modal-prod-ov').style.display = 'none';
+  document.getElementById('modal-prod').style.display = 'none';
+  _mpItemIdx = null;
+}
+
+function atualizarPreviewFatorProd() {
+  const fator = parseInt(document.getElementById('mp-fator').value) || 1;
+  const el = document.getElementById('mp-fator-preview');
+  if (el) el.textContent = fator === 1
+    ? '1 unidade na NF = 1 unidade no estoque'
+    : `1 item na NF = ${fator} unidades no estoque`;
+}
+
+document.addEventListener('input', function(e) {
+  if (e.target.id === 'mp-fator') atualizarPreviewFatorProd();
+});
+
+async function salvarProdNF() {
+  const sku  = document.getElementById('mp-sku').value.trim();
+  const desc = document.getElementById('mp-desc').value.trim();
+  const cat  = document.getElementById('mp-cat').value;
+  const un   = document.getElementById('mp-un').value;
+  const custo  = parseFloat(document.getElementById('mp-custo').value) || 0;
+  const venda  = parseFloat(document.getElementById('mp-venda').value) || 0;
+  const minimo = parseInt(document.getElementById('mp-min').value) || 0;
+  const fator  = parseInt(document.getElementById('mp-fator').value) || 1;
+
+  if (!sku || !desc) {
+    toast('Informe o SKU/EAN e a descrição', 'var(--red)');
+    return;
+  }
+
+  // 1. Cadastra o produto
+  const { data: prodData, error: prodErr } = await db.from('produtos').insert({
+    sku_ean: sku,
+    descricao: desc,
+    categoria: cat,
+    unidade: un,
+    estoque_minimo: minimo,
+    preco_custo: custo,
+    preco_venda: venda,
+    fator_conversao: fator,
+    ativo: true
+  }).select('sku_ean,descricao,categoria,fator_conversao').single();
+
+  if (prodErr) {
+    toast('Erro ao cadastrar: ' + prodErr.message, 'var(--red)');
+    return;
+  }
+
+  toast('Produto cadastrado ✓', 'var(--green)');
+
+  // 2. Cria o vínculo automaticamente se vier do porteiro
+  if (_mpItemIdx !== null) {
+    const it = _vpPendentes[_mpItemIdx];
+    if (it) {
+      const nfEan  = (it.cEAN || it.sku_ean || '').trim() || null;
+      const nfNome = (it.xProd || it.produto_nome || '').trim();
+
+      await db.from('nf_equivalencias').upsert({
+        nf_ean:         nfEan,
+        nf_nome:        nfNome,
+        estoque_ean:    sku,
+        estoque_nome:   desc,
+        fator_conversao: fator,
+        confirmado:     true
+      }, { onConflict: 'nf_nome' });
+
+      // Atualiza o cache local e o DOM do porteiro
+      _vpEstoque.push({ sku_ean: sku, descricao: desc, categoria: cat, fator_conversao: fator });
+
+      // Marca o item como vinculado no DOM
+      const row = document.getElementById('vp-item-' + _mpItemIdx);
+      if (row) {
+        row.style.background = 'rgba(29,158,117,.08)';
+        row.innerHTML = `<div style="padding:0 18px 4px 18px;display:flex;align-items:center;gap:10px">
+          <div style="width:28px;height:28px;border-radius:50%;background:#1d9e75;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">✓</div>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:#1d9e75">${nfNome}</div>
+            <div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">→ ${desc} · Fator: ${fator}x · <em>Cadastrado e vinculado!</em></div>
+          </div>
+        </div>`;
+      }
+
+      atualizarRodapeVp();
+      toast(`✓ Produto cadastrado e vinculado: "${nfNome}" → ${desc}`, 'var(--green)');
+    }
+  }
+
+  fecharModalProd();
+
+  // 3. Atualiza o select do item no porteiro
+  if (_mpItemIdx !== null) {
+    const sel = document.getElementById('vp-sel-' + _mpItemIdx);
+    if (sel) {
+      const opt = document.createElement('option');
+      opt.value = sku;
+      opt.text  = desc;
+      opt.selected = true;
+      sel.appendChild(opt);
+    }
+  }
 }
 
 // ═══ INIT — aguarda libs carregarem ═══
