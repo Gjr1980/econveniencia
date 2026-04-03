@@ -1384,7 +1384,7 @@ function lerXmlNF(ev){
 
   const reader = new FileReader();
   reader.onerror = () => mostrarErroXml('Erro ao ler o arquivo.');
-  reader.onload = e => {
+  reader.onload = async e => {
     try {
       const parser = new DOMParser();
       const xml = parser.parseFromString(e.target.result, 'application/xml');
