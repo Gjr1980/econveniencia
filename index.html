@@ -3489,10 +3489,23 @@ async function salvarCfg(){
 function testWpp(){const n=$('cfg-whatsapp_dono')?.value||'não configurado';toast('Teste enviado para '+n+' ✓','#25d366')}
 function dl(blob,nome){const u=URL.createObjectURL(blob);const a=document.createElement('a');a.href=u;a.download=nome;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
 
-// ═══ INIT — libs já no head, sem espera ═══
-document.getElementById('tur-data').value=new Date().toISOString().slice(0,10);
-initDB();
-loadDash();
+// ═══ INIT — aguarda libs carregarem ═══
+function aguardarLibsEIniciar(tentativas) {
+  tentativas = tentativas || 0;
+  if (typeof supabase !== 'undefined' && typeof XLSX !== 'undefined') {
+    document.getElementById('tur-data').value = new Date().toISOString().slice(0,10);
+    initDB();
+    loadDash();
+  } else if (tentativas < 50) {
+    setTimeout(function(){ aguardarLibsEIniciar(tentativas + 1); }, 100);
+  } else {
+    console.error('Libs não carregaram após 5s');
+    document.getElementById('tur-data').value = new Date().toISOString().slice(0,10);
+    initDB();
+    loadDash();
+  }
+}
+aguardarLibsEIniciar();
 </script>
 </body>
 </html>
