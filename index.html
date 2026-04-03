@@ -707,9 +707,9 @@ tr:last-child td{border-bottom:none}
     <div class="card-title">Período</div>
     <div class="g2">
       <div class="field"><label>Data Início</label><input type="date" id="tur-data"></div>
-      <div class="field"><label>Hora Início</label><input type="time" id="tur-ini" value="06:00"></div>
+      <div class="field"><label>Hora Início</label><input type="time" id="tur-ini" value="23:59"></div>
       <div class="field"><label>Data Final</label><input type="date" id="tur-data-fim"></div>
-      <div class="field"><label>Hora Final</label><input type="time" id="tur-fim" value="14:00"></div>
+      <div class="field"><label>Hora Final</label><input type="time" id="tur-fim" value="00:00"></div>
     </div>
     <div class="field" style="margin-top:4px"><label>Responsável</label><input id="tur-func" placeholder="Nome"></div>
   </div>
@@ -969,7 +969,77 @@ tr:last-child td{border-bottom:none}
       <div style="display:flex;gap:8px"><button class="btn btn-red" onclick="salvarProd()">Salvar</button><button class="btn btn-ghost" onclick="toggleEl('form-prod')">Cancelar</button></div>
     </div>
   </div>
-  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>SKU</th><th>Descrição</th><th>Categoria</th><th>Est. mín.</th><th>Custo</th><th>Status</th></tr></thead><tbody id="prod-tbody"></tbody></table></div></div>
+  <div class="card"><div class="tbl-wrap"><table><thead><tr><th>SKU</th><th>Descrição</th><th>Categoria</th><th>Est. mín.</th><th>Custo</th><th>Status</th><th>Ações</th></tr></thead><tbody id="prod-tbody"></tbody></table></div></div>
+</div>
+
+<!-- ═══ MODAL EDITAR PRODUTO ═══ -->
+<div id="modal-edprod-ov" onclick="fecharEditarProd()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:500"></div>
+<div id="modal-edprod" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:501;background:var(--card);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.35);width:min(96vw,620px);max-height:90vh;flex-direction:column;overflow:hidden">
+  <!-- Cabeçalho -->
+  <div style="padding:16px 20px;border-bottom:.5px solid var(--bd);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <div>
+      <div style="font-size:14px;font-weight:700;color:var(--tx)">✏️ Editar Produto</div>
+      <div style="font-size:11px;color:var(--t2);margin-top:2px" id="ep-nome-titulo"></div>
+    </div>
+    <button onclick="fecharEditarProd()" style="background:var(--c2);border:.5px solid var(--bd);border-radius:8px;padding:5px 12px;font-size:12px;color:var(--t2);cursor:pointer">✕ Fechar</button>
+  </div>
+
+  <!-- Conteúdo com scroll -->
+  <div style="overflow-y:auto;flex:1;padding:16px 20px">
+
+    <!-- Campos do produto -->
+    <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Dados do produto</div>
+    <div class="g2" style="margin-bottom:0">
+      <div class="field"><label>SKU / EAN</label><input id="ep-sku"></div>
+      <div class="field"><label>Descrição</label><input id="ep-desc"></div>
+      <div class="field"><label>Categoria</label>
+        <select id="ep-cat">
+          <option value="cerveja">Cerveja</option>
+          <option value="refrigerante">Refrigerante</option>
+          <option value="cigarro">Cigarro</option>
+          <option value="bebida_quente">Bebida quente</option>
+          <option value="agua">Água</option>
+          <option value="energetico">Energético</option>
+          <option value="doce">Doce/Snack</option>
+          <option value="outros">Outros</option>
+        </select>
+      </div>
+      <div class="field"><label>Unidade</label>
+        <select id="ep-un">
+          <option value="un">Unidade</option>
+          <option value="cx">Caixa</option>
+          <option value="fd">Fardo</option>
+        </select>
+      </div>
+      <div class="field"><label>Fator conversão</label><input type="number" id="ep-fator" min="1" max="999"></div>
+      <div class="field"><label>Est. mínimo</label><input type="number" id="ep-min"></div>
+      <div class="field"><label>Custo (R$)</label><input type="number" id="ep-custo" step="0.01"></div>
+      <div class="field"><label>Venda (R$)</label><input type="number" id="ep-venda" step="0.01"></div>
+      <div class="field"><label>Status</label>
+        <select id="ep-status">
+          <option value="1">Ativo</option>
+          <option value="0">Inativo</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Divisor -->
+    <div style="margin:16px 0 12px;border-top:.5px solid var(--bd)"></div>
+
+    <!-- Vínculos NF-e -->
+    <div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:13px;height:13px"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+      Vínculos com NF-e
+      <span style="font-size:10px;color:var(--t3);font-weight:400;text-transform:none">Produtos da nota fiscal que correspondem a este item</span>
+    </div>
+    <div id="ep-vinculos"></div>
+  </div>
+
+  <!-- Rodapé -->
+  <div style="padding:12px 20px;border-top:.5px solid var(--bd);background:var(--c2);flex-shrink:0;display:flex;gap:8px">
+    <button id="ep-btn-salvar" onclick="salvarEditarProd()" class="btn btn-green" style="flex:1">💾 Salvar produto</button>
+    <button onclick="fecharEditarProd()" class="btn btn-ghost">Cancelar</button>
+  </div>
 </div>
 
 <!-- ═══ EQUIPE ═══ -->
@@ -1299,25 +1369,63 @@ async function excluirNF(id, numero, fornecedor){
 let xmlNFdata = null; // dados parseados do último XML carregado (aba Compras)
 
 // ── Calcula a quantidade REAL de unidades a partir da NF ──
+// ─── detectarFatorNome ────────────────────────────────────────────────────────
+// Lê o nome do produto da NF e tenta extrair o fator de conversão (caixas→un.)
+// Padrões suportados (exemplos reais):
+//   BUDWEISER OW 330ML CX C/24          → 24
+//   STELLA ARTOIS PURE GOLD LT C 8 CX   → 8
+//   BEATS RED MIX LONG NECK 269ML C/2   → 2
+//   BRAHMA CHOPP LATA C/12              → 12
+//   CORONITA CX C/4 SIX PACK           → 4  (C/4 tem prioridade sobre SIX)
+//   HEINEKEN SIX-PACK 330ML             → 6  (SIX-PACK sem C/N explícito)
+//   PACK COM 12 UNIDADES                → 12
+// Retorna 1 se nenhum padrão for encontrado.
+function detectarFatorNome(xProd){
+  const nome = (xProd||'').toUpperCase();
+
+  // 1. Padrão explícito  C/N  ou  C N  (ex: C/24, C 8, C/2)
+  //    aceita: CX C/24, C/24 CX, C 8 CX, C/8, etc.
+  const mC = nome.match(/\bC[\s\/]+(\d{1,3})\b/);
+  if(mC){
+    const f = parseInt(mC[1]);
+    if(f > 1 && f <= 500) return f;
+  }
+
+  // 2. SIX-PACK ou SIXPACK → 6
+  if(/SIX[\s\-]*PACK/i.test(nome)) return 6;
+
+  // 3. PACK COM N  /  PACK N  /  N PACK  (ex: PACK 12, PACK COM 12)
+  const mPack = nome.match(/PACK\s+(?:COM\s+)?(\d{1,3})/);
+  if(mPack){
+    const f = parseInt(mPack[1]);
+    if(f > 1 && f <= 500) return f;
+  }
+
+  // 4. COM N UNIDADES  (ex: COM 12 UNIDADES, COM 6 UN)
+  const mUn = nome.match(/COM\s+(\d{1,3})\s+UN/);
+  if(mUn){
+    const f = parseInt(mUn[1]);
+    if(f > 1 && f <= 500) return f;
+  }
+
+  return 1; // sem padrão detectado
+}
+
 // Regra: se uCom = 'cx' e a descrição tiver C/8, C/12, C/24, etc.
 //        multiplica qtd_cx × fator_caixa
 // Exemplos:
-//   BRAHMA CHOPP LATA C/12 · 5 cx  → 5 × 12 = 60 unidades
-//   SKOL BEATS GT C/8 NPAL · 1 cx  → 1 ×  8 =  8 unidades
-//   CORONITA CX C/4 SIX PACK · 1cx → 1 ×  4 =  4 unidades
-//   GORDONS GIN 750ML · 2 Un        → 2 ×  1 =  2 unidades (já é unitário)
+//   BUDWEISER OW 330ML CX C/24 · 5 cx  → 5 × 24 = 120 unidades
+//   STELLA ARTOIS C 8 CX · 1 cx        → 1 ×  8 =   8 unidades
+//   BEATS RED MIX C/2 · 3 cx           → 3 ×  2 =   6 unidades
+//   GORDONS GIN 750ML · 2 Un            → 2 ×  1 =   2 unidades (já é unitário)
 function calcQtdReal(xProd, qCom, uCom){
   const qtd = Math.round(qCom) || 0;
   // Só aplica se a unidade for cx/caixa
   if(!uCom || !['cx','cx.','caixa'].includes(uCom.toLowerCase().trim())){
     return qtd; // já é unitário
   }
-  // Busca padrão C/8, C/12, C/24, C 8, C 15, etc. na descrição
-  const m = (xProd||'').match(/\bC[\/\s](\d+)\b/i);
-  if(m){
-    const fator = parseInt(m[1]);
-    if(fator > 1 && fator <= 200) return qtd * fator; // sanidade: fator razoável
-  }
+  const fator = detectarFatorNome(xProd);
+  if(fator > 1) return qtd * fator;
   return qtd; // não encontrou fator → retorna quantidade original
 }
 
@@ -1644,7 +1752,7 @@ async function verificarItensXml(itens) {
       reconhecidos.push(it);
       continue;
     }
-    // Prioridade 3: Nome bate em vínculo aprendido
+    // Prioridade 3: Nome bate em vínculo aprendido (exato normalizado)
     if (nomeN && mapNomeVinculo[nomeN]) {
       const v = mapNomeVinculo[nomeN];
       it._status   = 'ok_vinculo';
@@ -1654,12 +1762,63 @@ async function verificarItensXml(itens) {
       reconhecidos.push(it);
       continue;
     }
-    // Prioridade 4: Fuzzy matching — sugere produto parecido
+
+    // Prioridade 4: Busca parcial — nome da NF contém o nf_nome do vínculo
+    //   ou o nf_nome do vínculo contém o nome da NF (substring bidirecional)
+    //   Ex: "BUDWEISER OW 330ML CX C/24" já foi vinculado como "BUDWEISER OW 330ML CX C/24"
+    //       mas numa nova NF veio "BUDWEISER OW 330ML CX C/24 NPAL" → ainda reconhece
+    let vinculoParcial = null;
+    for (const v of _vpVinculos) {
+      const vNomeN = normalizar(v.nf_nome || '');
+      if (!vNomeN) continue;
+      // Verifica se um contém o outro (pelo menos 10 chars para evitar falso positivo)
+      if (vNomeN.length >= 10 && (nomeN.includes(vNomeN) || vNomeN.includes(nomeN))) {
+        vinculoParcial = v;
+        break;
+      }
+      // Verifica se EAN da NF bate com estoque_ean do vínculo (mesmo produto, embalagem diferente)
+      if (ean && v.estoque_ean && ean === v.estoque_ean) {
+        vinculoParcial = v;
+        break;
+      }
+    }
+    if (vinculoParcial) {
+      it._status   = 'ok_vinculo_parcial';
+      it._prodEan  = vinculoParcial.estoque_ean;
+      it._prodNome = vinculoParcial.estoque_nome || vinculoParcial.nf_nome;
+      it._fator    = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : (vinculoParcial.fator_conversao || 1);
+      reconhecidos.push(it);
+      continue;
+    }
+
+    // Prioridade 5: Fuzzy matching com score alto (≥ 35%) → reconhece automaticamente
+    //   Salva o vínculo novo em background para as próximas vezes
+    const sugestao = fuzzyMatch(nome, _vpEstoque);
+    if (sugestao) {
+      it._status   = 'ok_fuzzy';
+      it._prodEan  = sugestao.sku_ean;
+      it._prodNome = sugestao.descricao;
+      it._fator    = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : (sugestao.fator_conversao || 1);
+      reconhecidos.push(it);
+      // Salva vínculo em background para não perguntar de novo na próxima NF
+      db.from('nf_equivalencias').upsert({
+        nf_ean:          ean || null,
+        nf_nome:         nome,
+        estoque_ean:     sugestao.sku_ean,
+        estoque_nome:    sugestao.descricao,
+        fator_conversao: it._fator,
+        unidade_nf:      it.uCom || 'un',
+        confirmado:      false  // marcado como não-confirmado para revisão posterior
+      }, {onConflict:'nf_nome', ignoreDuplicates:true}).then(()=>{});
+      continue;
+    }
+
+    // Prioridade 6: Produto genuinamente desconhecido → pede vinculação
     it._status    = 'pendente';
-    it._sugestao  = fuzzyMatch(nome, _vpEstoque);
-    it._prodEan   = it._sugestao ? it._sugestao.sku_ean : '';
-    it._prodNome  = it._sugestao ? it._sugestao.descricao : '';
-    it._fator     = it._sugestao ? (it._sugestao.fator_conversao || 1) : 1;
+    it._sugestao  = null;
+    it._prodEan   = '';
+    it._prodNome  = '';
+    it._fator     = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : 1;
     desconhecidos.push(it);
   }
 
@@ -1670,17 +1829,21 @@ async function verificarItensXml(itens) {
   if (desconhecidos.length === 0) {
     // Tudo reconhecido — mostra toast e esconde painel
     painel.style.display = 'none';
-    toast(`✓ Todos os ${itens.length} produtos identificados automaticamente!`, 'var(--green)');
+    const nAuto = reconhecidos.filter(it=>it._status==='ok_fuzzy'||it._status==='ok_vinculo_parcial').length;
+    const msg = nAuto > 0
+      ? `✓ Todos os ${itens.length} produtos identificados! (${nAuto} por similaridade)`
+      : `✓ Todos os ${itens.length} produtos identificados automaticamente!`;
+    toast(msg, 'var(--green)');
     return;
   }
 
-  // Mostra painel com itens para vincular
+  // Mostra painel apenas com produtos genuinamente desconhecidos
   painel.style.display = 'block';
   painel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   $('vp-badge').textContent = desconhecidos.length + ' pendente(s)';
-  $('vp-sub').textContent = `${reconhecidos.length} de ${itens.length} identificados automaticamente · ${desconhecidos.length} precisam de atenção`;
+  $('vp-sub').textContent = `${reconhecidos.length} de ${itens.length} identificados automaticamente · ${desconhecidos.length} produto(s) novo(s) precisam de vinculação`;
   renderVpLista(desconhecidos);
-  toast(`🚚 ${desconhecidos.length} item(ns) precisam de vinculação`, 'var(--amber)');
+  toast(`⚠️ ${desconhecidos.length} produto(s) novo(s) precisam ser vinculados`, 'var(--amber)');
 }
 
 // Normaliza string para comparação
@@ -1746,8 +1909,9 @@ function renderVpLista(itens) {
         </div>
         <div>
           <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;margin-bottom:4px;font-weight:700">Fator</div>
-          <input type="number" id="vp-fator-${i}" value="${it._fator || 1}" min="1" max="999"
-            style="width:100%;padding:8px 10px;background:rgba(255,255,255,.08);border:.5px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:12px;text-align:center">
+          <input type="number" id="vp-fator-${i}" value="${Math.max(it._fator||1, detectarFatorNome(it.xProd||''))}" min="1" max="999"
+            style="width:100%;padding:8px 10px;background:rgba(255,255,255,.08);border:.5px solid ${detectarFatorNome(it.xProd||'')>1?'rgba(245,158,11,.6)':'rgba(255,255,255,.2)'};border-radius:8px;color:#fff;font-size:12px;text-align:center">
+          ${detectarFatorNome(it.xProd||'')>1?`<div style="font-size:10px;color:rgba(245,158,11,.8);margin-top:3px">⚡ Detectado automaticamente · confirme</div>`:''}
         </div>
         <div>
           <button id="vp-btn-${i}" onclick="confirmarVinculo(${i})"
@@ -3044,8 +3208,194 @@ async function loadGestor(){
 async function resolverAl(id){await db.from('alertas').update({resolvido:true}).eq('id',id);toast('Alerta resolvido ✓','var(--green)');loadGestor()}
 
 // ═══ PRODUTOS ═══
-async function loadProdutos(){if(!db)return;const{data}=await db.from('produtos').select('*').order('descricao');$('prod-tbody').innerHTML=(data||[]).map(p=>`<tr><td style="font-size:11px;color:var(--t2);font-family:monospace">${p.sku_ean}</td><td style="font-weight:600">${p.descricao}</td><td><span class="badge b-gray">${p.categoria||'—'}</span></td><td>${p.estoque_minimo}</td><td>R$ ${parseFloat(p.preco_custo||0).toFixed(2)}</td><td><span class="badge ${p.ativo?'b-ok':'b-danger'}">${p.ativo?'ativo':'inativo'}</span></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Nenhum produto</td></tr>'}
-function salvarProd(){const sku=$('p-sku').value.trim(),desc=$('p-desc').value.trim();if(!sku||!desc){toast('Informe SKU e descrição','var(--red)');return}db.from('produtos').insert({sku_ean:sku,descricao:desc,categoria:$('p-cat').value,unidade:$('p-un').value,estoque_minimo:parseInt($('p-min').value)||0,preco_custo:parseFloat($('p-custo').value)||0}).then(({error})=>{if(error){toast('Erro: '+error.message,'var(--red)');return}toast('Produto salvo ✓','var(--green)');toggleEl('form-prod');['p-sku','p-desc','p-min','p-custo'].forEach(id=>$(id).value='');loadProdutos()})}
+async function loadProdutos(){
+  if(!db)return;
+  const{data}=await db.from('produtos').select('*').order('descricao');
+  $('prod-tbody').innerHTML=(data||[]).map(p=>`
+    <tr>
+      <td style="font-size:11px;color:var(--t2);font-family:monospace">${p.sku_ean}</td>
+      <td style="font-weight:600">${p.descricao}</td>
+      <td><span class="badge b-gray">${p.categoria||'—'}</span></td>
+      <td>${p.estoque_minimo}</td>
+      <td>R$ ${parseFloat(p.preco_custo||0).toFixed(2)}</td>
+      <td><span class="badge ${p.ativo?'b-ok':'b-danger'}">${p.ativo?'ativo':'inativo'}</span></td>
+      <td><button class="btn btn-ghost" style="padding:3px 10px;font-size:11px" onclick="abrirEditarProd('${p.id}')">✏️ Editar</button></td>
+    </tr>`).join('')||'<tr><td colspan="7" class="empty">Nenhum produto</td></tr>';
+}
+
+function salvarProd(){
+  const sku=$('p-sku').value.trim(),desc=$('p-desc').value.trim();
+  if(!sku||!desc){toast('Informe SKU e descrição','var(--red)');return}
+  db.from('produtos').insert({sku_ean:sku,descricao:desc,categoria:$('p-cat').value,unidade:$('p-un').value,estoque_minimo:parseInt($('p-min').value)||0,preco_custo:parseFloat($('p-custo').value)||0})
+    .then(({error})=>{if(error){toast('Erro: '+error.message,'var(--red)');return}
+    toast('Produto salvo ✓','var(--green)');toggleEl('form-prod');['p-sku','p-desc','p-min','p-custo'].forEach(id=>$(id).value='');loadProdutos()});
+}
+
+// ─── EDITAR PRODUTO ───────────────────────────────────────────────────────────
+let _editProdId = null;
+
+async function abrirEditarProd(id){
+  const{data:p}=await db.from('produtos').select('*').eq('id',id).single();
+  if(!p){toast('Produto não encontrado','var(--red)');return}
+  _editProdId=id;
+
+  // Preenche campos do modal
+  $('ep-sku').value      = p.sku_ean||'';
+  $('ep-desc').value     = p.descricao||'';
+  $('ep-cat').value      = p.categoria||'outros';
+  $('ep-un').value       = p.unidade||'un';
+  $('ep-fator').value    = p.fator_conversao||1;
+  $('ep-min').value      = p.estoque_minimo||0;
+  $('ep-custo').value    = parseFloat(p.preco_custo||0).toFixed(2);
+  $('ep-venda').value    = parseFloat(p.preco_venda||0).toFixed(2);
+  $('ep-status').value   = p.ativo?'1':'0';
+  $('ep-nome-titulo').textContent = p.descricao;
+
+  // Carrega vínculos
+  await carregarVinculosProd(p.sku_ean);
+
+  // Abre modal
+  $('modal-edprod-ov').style.display='block';
+  $('modal-edprod').style.display='flex';
+}
+
+function fecharEditarProd(){
+  $('modal-edprod-ov').style.display='none';
+  $('modal-edprod').style.display='none';
+  _editProdId=null;
+}
+
+async function salvarEditarProd(){
+  if(!_editProdId)return;
+  const btn=$('ep-btn-salvar');
+  btn.disabled=true; btn.textContent='Salvando...';
+  const{error}=await db.from('produtos').update({
+    sku_ean:    $('ep-sku').value.trim(),
+    descricao:  $('ep-desc').value.trim(),
+    categoria:  $('ep-cat').value,
+    unidade:    $('ep-un').value,
+    fator_conversao: parseInt($('ep-fator').value)||1,
+    estoque_minimo:  parseInt($('ep-min').value)||0,
+    preco_custo:     parseFloat($('ep-custo').value)||0,
+    preco_venda:     parseFloat($('ep-venda').value)||0,
+    ativo:           $('ep-status').value==='1'
+  }).eq('id',_editProdId);
+  btn.disabled=false; btn.textContent='💾 Salvar produto';
+  if(error){toast('Erro: '+error.message,'var(--red)');return}
+  toast('Produto atualizado ✓','var(--green)');
+  fecharEditarProd();
+  loadProdutos();
+}
+
+// ─── VÍNCULOS NF-e ────────────────────────────────────────────────────────────
+async function carregarVinculosProd(skuEan){
+  $('ep-vinculos').innerHTML='<div style="color:var(--t2);font-size:12px"><span class="spin"></span> Carregando vínculos...</div>';
+  const{data:vs}=await db.from('nf_equivalencias').select('*').eq('estoque_ean',skuEan).order('usos_total',{ascending:false});
+  const lista=vs||[];
+  if(!lista.length){
+    $('ep-vinculos').innerHTML='<div style="color:var(--t3);font-size:12px;padding:8px 0">Nenhum vínculo cadastrado com NF-e.</div>';
+    return;
+  }
+  $('ep-vinculos').innerHTML=lista.map(v=>`
+    <div id="vcard-${v.id}" style="border:.5px solid var(--bd);border-radius:var(--r);padding:11px 13px;margin-bottom:8px;background:var(--c2)">
+      <div id="vcard-view-${v.id}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:var(--tx);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${v.nf_nome||''}">${v.nf_nome||'—'}</div>
+            <div style="font-size:11px;color:var(--t2);margin-bottom:4px">
+              EAN NF: <code style="background:var(--bd);padding:1px 5px;border-radius:3px">${v.nf_ean||'—'}</code>
+              &nbsp;·&nbsp; Fator: <strong>${v.fator_conversao||1}</strong>
+              &nbsp;·&nbsp; Unid: ${v.unidade_nf||'—'}
+            </div>
+            <div style="font-size:10px;color:var(--t3)">
+              Usos: ${v.usos_total||0}
+              ${v.ultimo_uso?'· Último: '+new Date(v.ultimo_uso).toLocaleDateString('pt-BR'):''}
+            </div>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button onclick="editarVinculo('${v.id}')" style="background:var(--bl);border:.5px solid var(--bt);border-radius:6px;padding:4px 9px;font-size:11px;color:var(--bt);cursor:pointer;font-weight:600">✏️</button>
+            <button onclick="confirmarExcluirVinculo('${v.id}','${(v.nf_nome||'').replace(/'/g,"\\'")}' )" style="background:var(--rl);border:.5px solid var(--rt);border-radius:6px;padding:4px 9px;font-size:11px;color:var(--rt);cursor:pointer;font-weight:600">🗑️</button>
+          </div>
+        </div>
+      </div>
+      <div id="vcard-edit-${v.id}" style="display:none">
+        <div class="g2" style="margin-bottom:8px">
+          <div class="field" style="margin:0"><label>Nome na NF-e</label><input id="ve-nome-${v.id}" value="${(v.nf_nome||'').replace(/"/g,'&quot;')}" style="font-size:12px"></div>
+          <div class="field" style="margin:0"><label>EAN na NF-e</label><input id="ve-ean-${v.id}" value="${v.nf_ean||''}" style="font-size:12px"></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div class="field" style="margin:0;flex:1"><label>Fator</label><input type="number" id="ve-fator-${v.id}" value="${v.fator_conversao||1}" min="1" max="500" style="font-size:13px;font-weight:700;text-align:center"></div>
+          <div class="field" style="margin:0;flex:1"><label>Unidade NF</label>
+            <select id="ve-un-${v.id}" style="font-size:12px">
+              <option value="un" ${(v.unidade_nf||'').toLowerCase()==='un'?'selected':''}>UN</option>
+              <option value="cx" ${(v.unidade_nf||'').toLowerCase()==='cx'?'selected':''}>CX</option>
+              <option value="fd" ${(v.unidade_nf||'').toLowerCase()==='fd'?'selected':''}>FD</option>
+              <option value="pc" ${(v.unidade_nf||'').toLowerCase()==='pc'?'selected':''}>PC</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="salvarVinculo('${v.id}')" style="background:var(--green);border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;color:#fff;cursor:pointer">✅ Salvar</button>
+          <button onclick="cancelarEditarVinculo('${v.id}')" style="background:transparent;border:.5px solid var(--b2);border-radius:6px;padding:6px 14px;font-size:12px;color:var(--t2);cursor:pointer">Cancelar</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function editarVinculo(id){
+  document.getElementById('vcard-view-'+id).style.display='none';
+  document.getElementById('vcard-edit-'+id).style.display='block';
+}
+
+function cancelarEditarVinculo(id){
+  document.getElementById('vcard-view-'+id).style.display='block';
+  document.getElementById('vcard-edit-'+id).style.display='none';
+}
+
+async function salvarVinculo(id){
+  const nome  = document.getElementById('ve-nome-'+id)?.value.trim();
+  const ean   = document.getElementById('ve-ean-'+id)?.value.trim();
+  const fator = parseInt(document.getElementById('ve-fator-'+id)?.value)||1;
+  const un    = document.getElementById('ve-un-'+id)?.value||'un';
+  const{error}=await db.from('nf_equivalencias').update({
+    nf_nome:nome, nf_ean:ean||null, fator_conversao:fator, unidade_nf:un
+  }).eq('id',id);
+  if(error){toast('Erro ao salvar: '+error.message,'var(--red)');return}
+  toast('Vínculo atualizado ✓','var(--green)');
+  // Recarrega a lista de vínculos
+  const skuEan=$('ep-sku').value;
+  await carregarVinculosProd(skuEan);
+}
+
+function confirmarExcluirVinculo(id, nomeNF){
+  const card=document.getElementById('vcard-'+id);
+  if(!card)return;
+  card.style.borderColor='var(--red)';
+  card.style.background='var(--rl)';
+  // Insere mini-confirmação no card
+  const conf=document.createElement('div');
+  conf.id='vcard-conf-'+id;
+  conf.style.cssText='margin-top:8px;padding:8px 0 2px;border-top:.5px solid var(--red);display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+  conf.innerHTML=`<span style="font-size:12px;color:var(--rt);font-weight:600">Excluir vínculo com "${nomeNF.slice(0,40)}"?</span>
+    <button onclick="excluirVinculo('${id}')" style="background:var(--red);border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:700;color:#fff;cursor:pointer">Confirmar exclusão</button>
+    <button onclick="cancelarExcluirVinculo('${id}')" style="background:transparent;border:.5px solid var(--b2);border-radius:6px;padding:5px 12px;font-size:11px;color:var(--t2);cursor:pointer">Cancelar</button>`;
+  card.appendChild(conf);
+}
+
+function cancelarExcluirVinculo(id){
+  const conf=document.getElementById('vcard-conf-'+id);
+  if(conf)conf.remove();
+  const card=document.getElementById('vcard-'+id);
+  if(card){card.style.borderColor='';card.style.background='';}
+}
+
+async function excluirVinculo(id){
+  const{error}=await db.from('nf_equivalencias').delete().eq('id',id);
+  if(error){toast('Erro ao excluir: '+error.message,'var(--red)');return}
+  toast('Vínculo excluído ✓','var(--green)');
+  const skuEan=$('ep-sku').value;
+  await carregarVinculosProd(skuEan);
+}
 
 // ═══ EQUIPE ═══
 async function loadEquipe(){if(!db)return;const{data}=await db.from('funcionarios').select('*').order('nome');$('func-tbody').innerHTML=(data||[]).map(f=>`<tr><td style="font-weight:600">${f.nome}</td><td><span class="badge b-info">${f.cargo}</span></td><td style="color:var(--t2)">${f.telefone||'—'}</td><td><span class="badge ${f.ativo?'b-ok':'b-danger'}">${f.ativo?'ativo':'inativo'}</span></td></tr>`).join('')||'<tr><td colspan="4" class="empty">Nenhum funcionário</td></tr>'}
@@ -3744,11 +4094,8 @@ function abrirCadastroProduto(idx) {
     (ean ? ` &nbsp;|&nbsp; EAN: <code>${ean}</code>` : '') +
     ` &nbsp;|&nbsp; Qtd: ${qtd} &nbsp;|&nbsp; Valor: R$ ${vl}`;
 
-  // Detecta fator automaticamente pelo nome
-  const fatorAuto = calcQtdReal ? (() => {
-    const m = nome.match(/C\/?(\d+)/i);
-    return m ? parseInt(m[1]) : 1;
-  })() : 1;
+  // Detecta fator automaticamente usando função completa
+  const fatorAuto = detectarFatorNome(nome);
   document.getElementById('mp-fator').value = fatorAuto;
   atualizarPreviewFatorProd();
 
