@@ -704,8 +704,14 @@ tr:last-child td{border-bottom:none}
 <!-- ═══ AUDITOR ═══ -->
 <div id="p-auditor" class="page">
   <div class="card">
-    <div class="card-title">Turno</div>
-    <div class="g2"><div class="g2"><div class="field"><label>Data</label><input type="date" id="tur-data"></div><div class="field"><label>Responsável</label><input id="tur-func" placeholder="Nome"></div></div><div class="g2"><div class="field"><label>Início</label><input type="time" id="tur-ini" value="06:00"></div><div class="field"><label>Fim</label><input type="time" id="tur-fim" value="14:00"></div></div></div>
+    <div class="card-title">Período</div>
+    <div class="g2">
+      <div class="field"><label>Data Início</label><input type="date" id="tur-data"></div>
+      <div class="field"><label>Hora Início</label><input type="time" id="tur-ini" value="06:00"></div>
+      <div class="field"><label>Data Final</label><input type="date" id="tur-data-fim"></div>
+      <div class="field"><label>Hora Final</label><input type="time" id="tur-fim" value="14:00"></div>
+    </div>
+    <div class="field" style="margin-top:4px"><label>Responsável</label><input id="tur-func" placeholder="Nome"></div>
   </div>
   <div class="steps"><div class="step active" id="st1"><div class="step-c">1</div><div class="step-l">Estoque inicial</div></div><div class="step" id="st2"><div class="step-c">2</div><div class="step-l">Vendas PDV</div></div><div class="step" id="st3"><div class="step-c">3</div><div class="step-l">Contagem final</div></div><div class="step" id="st4"><div class="step-c">4</div><div class="step-l">Processar</div></div></div>
   <div class="g3">
@@ -777,14 +783,7 @@ tr:last-child td{border-bottom:none}
       </div>
     </div>
   </div>
-  <div class="card" style="margin-top:4px">
-    <div class="card-title">Baixar modelos</div>
-    <div class="tpl-g">
-      <div class="tpl-c" onclick="baixarTpl('inicial')"><div class="tpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/></svg></div><div class="tpl-n">Estoque inicial</div><div class="tpl-d">SKU, Produto, Qtd, Custo</div></div>
-      <div class="tpl-c" onclick="baixarTpl('vendas')"><div class="tpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/></svg></div><div class="tpl-n">Vendas PDV</div><div class="tpl-d">EAN, Produto, Qtd, Hora</div></div>
-      <div class="tpl-c" onclick="baixarTpl('final')"><div class="tpl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/></svg></div><div class="tpl-n">Contagem final</div><div class="tpl-d">SKU, Produto, Qtd contada</div></div>
-    </div>
-  </div>
+
   <button class="btn-full btn-green" id="btn-proc" disabled onclick="processarAud()" style="margin-bottom:14px">Processar auditoria e salvar no banco</button>
   <div id="aud-res" style="display:none">
     <div class="g4r" id="aud-kpis"></div>
@@ -2395,8 +2394,8 @@ async function processarAud(){
   const resetBtn=()=>{btn.disabled=false;btn.textContent='Processar auditoria e salvar no banco';};
 
   // Valida campos obrigatórios antes de qualquer coisa
-  const dataT=$('tur-data').value,ini=$('tur-ini').value,fim=$('tur-fim').value,func=$('tur-func').value;
-  if(!dataT){toast('⚠ Preencha a Data do turno','var(--red)');resetBtn();return}
+  const dataT=$('tur-data').value,ini=$('tur-ini').value,dataFim=$('tur-data-fim').value||dataT,fim=$('tur-fim').value,func=$('tur-func').value;
+  if(!dataT){toast('⚠ Preencha a Data Início','var(--red)');resetBtn();return}
   if(!upData[1]||!upData[1].length){toast('⚠ Arquivo 1 (Estoque inicial) não carregado','var(--red)');resetBtn();return}
   if(!upData[2]||!upData[2].length){toast('⚠ Arquivo 2 (Vendas PDV) não carregado','var(--red)');resetBtn();return}
   if(!upData[3]||!upData[3].length){toast('⚠ Arquivo 3 (Contagem final) não carregado','var(--red)');resetBtn();return}
@@ -2404,7 +2403,7 @@ async function processarAud(){
   try{
   // Cria o turno
   const{data:turno,error:te}=await db.from('upload_turnos').insert({
-    data:dataT,hora_inicio:ini,hora_fim:fim,funcionario:func||null,status:'processando'
+    data:dataT,hora_inicio:ini,data_fim:dataFim,hora_fim:fim,funcionario:func||null,status:'processando'
   }).select().single();
   if(te){toast('Erro ao criar turno: '+te.message,'var(--red)');resetBtn();return}
 
@@ -2533,7 +2532,7 @@ async function processarAud(){
 
   // ── 4. Avarias do banco para este dia ──
   const{data:avBanco}=await db.from('avarias').select('sku_ean,produto_nome,quantidade')
-    .gte('created_at',dataT+'T00:00:00').lte('created_at',dataT+'T23:59:59');
+    .gte('created_at',dataT+'T00:00:00').lte('created_at',(dataFim||dataT)+'T23:59:59');
   const avarias=avBanco||[];
 
   // ══════════════════════════════════════════════════════════════
@@ -2596,15 +2595,18 @@ async function processarAud(){
     // Turno NOITE: 14:00–22:00 → hora_recebimento entre 14:00 e 22:00
     try{
       const{data:nfsDia}=await db.from('notas_fiscais')
-        .select('id,hora_recebimento,numero,fornecedor')
+        .select('id,hora_recebimento,numero,fornecedor,data_entrada')
         .eq('foto_danfe',true)
-        .eq('data_entrada',dataT)
+        .gte('data_entrada',dataT)
+        .lte('data_entrada',dataFim||dataT)
         .eq('itens_salvos',true); // só NFs que têm itens salvos
 
       const nfsNoTurno=(nfsDia||[]).filter(nf=>{
         if(!nf.hora_recebimento) return true; // sem hora → entra em qualquer turno
         const h=nf.hora_recebimento.slice(0,5);
-        return h>=ini && h<=fim;
+        // Se mesma data início e fim: filtra por hora; se datas diferentes: aceita tudo
+        if(dataT===dataFim) return h>=ini && h<=fim;
+        return true;
       });
 
       if(nfsNoTurno.length){
