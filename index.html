@@ -1190,11 +1190,6 @@ function nav(page,el){
     const hoje=new Date().toISOString().slice(0,10);
     $('tur-data').value=hoje;
     if($('xml-aud-data-entrada')) $('xml-aud-data-entrada').value=hoje;
-    $('tur-data').addEventListener('change',function(){
-      const de=$('xml-aud-data-entrada');
-      if(de&&(!de.value||de.value===de.dataset.prev)) de.value=this.value;
-      de.dataset.prev=this.value;
-    });
   }
   if(page==='relatorio'){$('rl-de').value=new Date(new Date().setDate(1)).toISOString().slice(0,10);$('rl-ate').value=new Date().toISOString().slice(0,10);}
 }
@@ -2897,15 +2892,13 @@ async function processarAud(){
     const sku=(ini2.sku_ean||'').replace(/\D/g,'').trim();
     const nL=(ini2.produto_nome||'').toLowerCase().trim();
 
-    // MATCH — prioridade: EAN → nome exato → fuzzy
+    // MATCH ROBUSTO — 4 camadas
     const match=(x)=>{
       const xSku=(x.sku_ean||'').replace(/\D/g,'').trim();
-      if(sku&&xSku&&sku===xSku) return true;         // EAN idêntico → match perfeito
-      if(sku&&!xSku) return false;                    // estoque tem EAN, outro não → sem match
-      if(!sku&&xSku) return false;                    // outro tem EAN, estoque não → sem match
+      if(sku&&xSku&&sku===xSku) return true;
       const xNome=(x.produto_nome||'').toLowerCase().trim();
-      if(nL===xNome) return true;                     // nome exato
-      if(nL.length>=4&&xNome.length>=4&&simNome(nL,xNome)>=0.5) return true; // fuzzy ≥50%
+      if(nL&&xNome&&nL===xNome) return true;
+      if(nL.length>=4&&xNome.length>=4&&simNome(nL,xNome)>=0.4) return true;
       return false;
     };
 
@@ -2949,7 +2942,6 @@ async function processarAud(){
     };
   });
 
-  // Adiciona itens da NF sem match no estoque inicial (qI=0)
   const skusNoRes = new Set(resultado.map(r => (r.sku_ean||'').replace(/\D/g,'')));
   const nomesNoRes = new Set(resultado.map(r => (r.produto_nome||'').toLowerCase().trim()));
   const orfasMap = {};
@@ -2958,8 +2950,7 @@ async function processarAud(){
     const itNome = (it.produto_nome||'').toLowerCase().trim();
     if(itSku && skusNoRes.has(itSku)) return;
     if(!itSku && nomesNoRes.has(itNome)) return;
-    const key = itSku || itNome;
-    if(!key) return;
+    const key = itSku || itNome; if(!key) return;
     if(!orfasMap[key]) orfasMap[key] = { ...it, qtd_xml: 0 };
     orfasMap[key].qtd_xml += (Number(it.qtd_xml)||0);
   });
