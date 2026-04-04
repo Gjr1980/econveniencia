@@ -1731,8 +1731,8 @@ async function verificarItensXml(itens) {
   const mapEanAlt = {};
   _vpEstoque.forEach(p => { if(p.ean_alternativo) mapEanAlt[p.ean_alternativo.trim()] = p; });
   _vpVinculos.forEach(v => {
-    if(v.nf_nome)  mapNomeVinculo[normalizar(v.nf_nome)] = v;
-    if(v.nf_ean)   mapEanVinculo[v.nf_ean.trim()] = v;
+    if(v.nf_nome) mapNomeVinculo[normalizar(v.nf_nome)] = v;
+    if(v.nf_ean)  mapEanVinculo[v.nf_ean.trim()] = v;
   });
 
   // 2. Classifica cada item
@@ -1744,14 +1744,12 @@ async function verificarItensXml(itens) {
     const nome  = (it.xProd || '').trim();
     const nomeN = normalizar(nome);
 
-    // Prioridade 1: EAN bate direto no sku_ean do estoque
     if (ean && mapEanEstoque[ean]) {
       const prod = mapEanEstoque[ean];
       it._status='ok_ean'; it._prodEan=prod.sku_ean; it._prodNome=prod.descricao; it._fator=prod.fator_conversao||1;
       reconhecidos.push(it); continue;
     }
-    // Prioridade 1b: EAN bate com ean_alternativo do produto
-    if (ean && mapEanAlt[ean]) {
+    if (ean && mapEanAlt && mapEanAlt[ean]) {
       const prod = mapEanAlt[ean];
       it._status='ok_ean_alt'; it._prodEan=prod.sku_ean; it._prodNome=prod.descricao; it._fator=prod.fator_conversao||1;
       reconhecidos.push(it); continue;
@@ -1814,16 +1812,14 @@ async function verificarItensXml(itens) {
       it._prodNome = sugestao.descricao;
       it._fator    = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : (sugestao.fator_conversao || 1);
       reconhecidos.push(it);
-      // Salva vínculo em background para não perguntar de novo na próxima NF
+      const vinExist = _vpVinculos.find(v => v.estoque_ean === sugestao.sku_ean);
+      const fatorFinal = it._fator > 1 ? it._fator : (vinExist?.fator_conversao || it._fator);
+      it._fator = fatorFinal;
       db.from('nf_equivalencias').upsert({
-        nf_ean:          ean || null,
-        nf_nome:         nome,
-        estoque_ean:     sugestao.sku_ean,
-        estoque_nome:    sugestao.descricao,
-        fator_conversao: it._fator,
-        unidade_nf:      it.uCom || 'un',
-        confirmado:      false  // marcado como não-confirmado para revisão posterior
-      }, {onConflict:'nf_nome', ignoreDuplicates:true}).then(()=>{});
+        nf_ean: ean||null, nf_nome: nome, estoque_ean: sugestao.sku_ean,
+        estoque_nome: sugestao.descricao, fator_conversao: fatorFinal,
+        unidade_nf: it.uCom||'un', confirmado: true
+      }, {onConflict:'nf_nome', ignoreDuplicates:false}).then(()=>{});
       continue;
     }
 
@@ -1869,14 +1865,13 @@ function normalizar(s) {
 }
 
 function fuzzyMatch(nomeNF, produtos) {
-  const expandir = (s) => s.replace(/\bcerv\b/gi,'cerveja').replace(/\bln\b/gi,'long neck').replace(/\blt\b/gi,'lata').replace(/\bgar\b/gi,'garrafa');
-  const tokensNF = new Set(normalizar(expandir(nomeNF)).split(' ').filter(t => t.length > 2));
+  const exp = (s) => s.replace(/\bcerv\b/gi,'cerveja').replace(/\bln\b/gi,'long neck').replace(/\blt\b/gi,'lata').replace(/\bgar\b/gi,'garrafa');
+  const tokensNF = new Set(normalizar(exp(nomeNF)).split(' ').filter(t => t.length > 2));
   if (!tokensNF.size) return null;
   let melhor = null, melhorScore = 0;
   for (const p of produtos) {
-    const tokensP = new Set(normalizar(expandir(p.descricao)).split(' ').filter(t => t.length > 2));
-    let hits = 0;
-    tokensNF.forEach(t => { if(tokensP.has(t)) hits++; });
+    const tokensP = new Set(normalizar(exp(p.descricao)).split(' ').filter(t => t.length > 2));
+    let hits = 0; tokensNF.forEach(t => { if(tokensP.has(t)) hits++; });
     const score = hits / Math.max(tokensNF.size, tokensP.size);
     if (score > melhorScore) { melhorScore = score; melhor = p; }
   }
@@ -2776,8 +2771,8 @@ async function processarAud(){
       const{data:nfsDia}=await db.from('notas_fiscais')
         .select('id,hora_recebimento,numero,fornecedor,data_entrada')
         .eq('foto_danfe',true)
-        .gte('data_entrada',dataT)
-        .lte('data_entrada',dataFim||dataT)
+        .gte('data_entrada', [dataT, dataEntradaNF].sort()[0])
+        .lte('data_entrada', [dataFim||dataT, dataEntradaNF].sort().pop())
         .eq('itens_salvos',true); // só NFs que têm itens salvos
 
       const nfsNoTurno=(nfsDia||[]).filter(nf=>{
@@ -3385,7 +3380,7 @@ async function salvarVinculo(id){
   const fator = parseInt(document.getElementById('ve-fator-'+id)?.value)||1;
   const un    = document.getElementById('ve-un-'+id)?.value||'un';
   const{error}=await db.from('nf_equivalencias').update({
-    nf_nome:nome, nf_ean:ean||null, fator_conversao:fator, unidade_nf:un
+    nf_nome:nome, nf_ean:ean||null, fator_conversao:fator, unidade_nf:un, confirmado:true
   }).eq('id',id);
   if(error){toast('Erro ao salvar: '+error.message,'var(--red)');return}
   toast('Vínculo atualizado ✓','var(--green)');
