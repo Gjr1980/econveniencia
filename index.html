@@ -2949,6 +2949,28 @@ async function processarAud(){
     };
   });
 
+  // Adiciona itens da NF sem match no estoque inicial (qI=0)
+  const skusNoRes = new Set(resultado.map(r => (r.sku_ean||'').replace(/\D/g,'')));
+  const nomesNoRes = new Set(resultado.map(r => (r.produto_nome||'').toLowerCase().trim()));
+  const orfasMap = {};
+  comprasResolvidas.forEach(it => {
+    const itSku = (it.sku_ean||'').replace(/\D/g,'');
+    const itNome = (it.produto_nome||'').toLowerCase().trim();
+    if(itSku && skusNoRes.has(itSku)) return;
+    if(!itSku && nomesNoRes.has(itNome)) return;
+    const key = itSku || itNome;
+    if(!key) return;
+    if(!orfasMap[key]) orfasMap[key] = { ...it, qtd_xml: 0 };
+    orfasMap[key].qtd_xml += (Number(it.qtd_xml)||0);
+  });
+  Object.values(orfasMap).forEach(it => {
+    const qC2 = Number(it.qtd_xml)||0;
+    resultado.push({ turno_id:turno.id, sku_ean:it.sku_ean||null, produto_nome:it.produto_nome||'',
+      categoria:null, qtd_inicial:0, qtd_compras:qC2, qtd_vendas_pdv:0, qtd_avarias:0,
+      saldo_logico:qC2, qtd_fisica:null, divergencia:0, preco_custo:0, preco_venda:0,
+      valor_furo:0, status_auditoria:'ok', _sem_cont:true });
+  });
+
   // ── 6. Salvar resultado ──
   const resultadoParaBanco=resultado.map(r=>({
     turno_id:r.turno_id,sku_ean:r.sku_ean,produto_nome:r.produto_nome,
