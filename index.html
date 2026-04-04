@@ -738,12 +738,7 @@ tr:last-child td{border-bottom:none}
       <span style="font-size:12px;font-weight:700;color:var(--tx)">4 — Nota Fiscal de Compras (XML)</span>
       <span style="font-size:10px;color:var(--t2);background:var(--c2);padding:2px 8px;border-radius:20px">Opcional</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;background:var(--c2);border:.5px solid var(--bd);border-radius:var(--r);padding:10px 13px">
-      <svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      <div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--tx)">Data de entrada da NF</div>
-      <div style="font-size:10px;color:var(--t2)">Informe quando essa nota foi recebida</div></div>
-      <input type="date" id="xml-aud-data-entrada" style="padding:6px 10px;font-size:13px;font-weight:600;border:.5px solid var(--b2);border-radius:var(--r);background:var(--card);color:var(--tx);min-width:140px">
-    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;background:var(--c2);border:.5px solid var(--bd);border-radius:var(--r);padding:10px 13px"><svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2" style="width:16px;height:16px;flex-shrink:0"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><div style="flex:1"><div style="font-size:11px;font-weight:700;color:var(--tx)">Data de entrada da NF</div><div style="font-size:10px;color:var(--t2)">Informe quando essa nota foi recebida</div></div><input type="date" id="xml-aud-data-entrada" style="padding:6px 10px;font-size:13px;font-weight:600;border:.5px solid var(--b2);border-radius:var(--r);background:var(--card);color:var(--tx);min-width:140px"></div>
         <div class="dz" id="dz-xml-aud" style="border-color:var(--green);opacity:.85">
       <input type="file" class="fi" accept=".xml" id="xml-aud-input" onchange="handleXmlAud(event)">
       <div class="dz-ic" id="dz-xml-aud-ic">
@@ -1728,31 +1723,33 @@ async function verificarItensXml(itens) {
   const mapEanVinculo  = {};  // nf_ean → vínculo
 
   _vpEstoque.forEach(p  => { if(p.sku_ean) mapEanEstoque[p.sku_ean.trim()] = p; });
-  const mapEanAlt = {};
-  _vpEstoque.forEach(p => { if(p.ean_alternativo) mapEanAlt[p.ean_alternativo.trim()] = p; });
+  const mapEanAlt={};
+  _vpEstoque.forEach(p=>{if(p.ean_alternativo){mapEanAlt[p.ean_alternativo.trim()]=p;}});
   _vpVinculos.forEach(v => {
-    if(v.nf_nome) mapNomeVinculo[normalizar(v.nf_nome)] = v;
-    if(v.nf_ean)  mapEanVinculo[v.nf_ean.trim()] = v;
+    if(v.nf_nome) mapNomeVinculo[normalizar(v.nf_nome)]=v;
+    if(v.nf_ean)  mapEanVinculo[v.nf_ean.trim()]=v;
   });
 
   // 2. Classifica cada item
   const reconhecidos = [];
   const desconhecidos = [];
 
+  const normEAN=(e)=>(e||'').replace(/\D/g,'').replace(/^0+/,'');
   for (const it of itens) {
-    const ean   = (it.cEAN || '').trim();
-    const nome  = (it.xProd || '').trim();
-    const nomeN = normalizar(nome);
+    const eanRaw=(it.cEAN||it.sku_ean||'').trim();
+    const ean=normEAN(eanRaw);
+    const nome=(it.xProd||it.produto_nome||'').trim();
+    const nomeN=normalizar(nome);
 
     if (ean && mapEanEstoque[ean]) {
-      const prod = mapEanEstoque[ean];
-      it._status='ok_ean'; it._prodEan=prod.sku_ean; it._prodNome=prod.descricao; it._fator=prod.fator_conversao||1;
-      reconhecidos.push(it); continue;
+      const prod=mapEanEstoque[ean];
+      it._status='ok_ean';it._prodEan=prod.sku_ean;it._prodNome=prod.descricao;it._fator=prod.fator_conversao||1;
+      reconhecidos.push(it);continue;
     }
-    if (ean && mapEanAlt && mapEanAlt[ean]) {
-      const prod = mapEanAlt[ean];
-      it._status='ok_ean_alt'; it._prodEan=prod.sku_ean; it._prodNome=prod.descricao; it._fator=prod.fator_conversao||1;
-      reconhecidos.push(it); continue;
+    if (ean && typeof mapEanAlt!=='undefined' && mapEanAlt[ean]) {
+      const prod=mapEanAlt[ean];
+      it._status='ok_ean_alt';it._prodEan=prod.sku_ean;it._prodNome=prod.descricao;it._fator=prod.fator_conversao||1;
+      reconhecidos.push(it);continue;
     }
     // Prioridade 2: EAN bate em vínculo aprendido
     if (ean && mapEanVinculo[ean]) {
@@ -1764,15 +1761,23 @@ async function verificarItensXml(itens) {
       reconhecidos.push(it);
       continue;
     }
-    // Prioridade 3: Nome bate em vínculo aprendido (exato normalizado)
     if (nomeN && mapNomeVinculo[nomeN]) {
-      const v = mapNomeVinculo[nomeN];
-      it._status   = 'ok_vinculo';
-      it._prodEan  = v.estoque_ean;
-      it._prodNome = v.estoque_nome || v.nf_nome;
-      it._fator    = v.fator_conversao || 1;
-      reconhecidos.push(it);
-      continue;
+      const v=mapNomeVinculo[nomeN];
+      it._status='ok_vinculo';it._prodEan=v.estoque_ean;it._prodNome=v.estoque_nome||v.nf_nome;it._fator=v.fator_conversao||1;
+      reconhecidos.push(it);continue;
+    }
+    // P3b: subset de tokens ≥ 75%
+    let _vNome=null;
+    for(const[ch,v]of Object.entries(mapNomeVinculo)){
+      const tNF=nomeN.split(' ').filter(t=>t.length>1);
+      const tBD=ch.split(' ').filter(t=>t.length>1);
+      if(!tNF.length||!tBD.length)continue;
+      const hits=tBD.filter(t=>tNF.includes(t)).length;
+      if(hits/Math.max(tNF.length,tBD.length)>=0.75){_vNome=v;break;}
+    }
+    if(_vNome){
+      it._status='ok_vinculo_nome';it._prodEan=_vNome.estoque_ean;it._prodNome=_vNome.estoque_nome||_vNome.nf_nome;it._fator=_vNome.fator_conversao||1;
+      reconhecidos.push(it);continue;
     }
 
     // Prioridade 4: Busca parcial — nome da NF contém o nf_nome do vínculo
@@ -1812,14 +1817,16 @@ async function verificarItensXml(itens) {
       it._prodNome = sugestao.descricao;
       it._fator    = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : (sugestao.fator_conversao || 1);
       reconhecidos.push(it);
-      const vinExist = _vpVinculos.find(v => v.estoque_ean === sugestao.sku_ean);
-      const fatorFinal = it._fator > 1 ? it._fator : (vinExist?.fator_conversao || it._fator);
-      it._fator = fatorFinal;
+      // Salva vínculo em background para não perguntar de novo na próxima NF
       db.from('nf_equivalencias').upsert({
-        nf_ean: ean||null, nf_nome: nome, estoque_ean: sugestao.sku_ean,
-        estoque_nome: sugestao.descricao, fator_conversao: fatorFinal,
-        unidade_nf: it.uCom||'un', confirmado: true
-      }, {onConflict:'nf_nome', ignoreDuplicates:false}).then(()=>{});
+        nf_ean:          ean || null,
+        nf_nome:         nome,
+        estoque_ean:     sugestao.sku_ean,
+        estoque_nome:    sugestao.descricao,
+        fator_conversao: it._fator,
+        unidade_nf:      it.uCom || 'un',
+        confirmado:      true
+      }, {onConflict:'nf_nome', ignoreDuplicates:true}).then(()=>{});
       continue;
     }
 
@@ -2939,8 +2946,8 @@ async function processarAud(){
   const orfasMap={};
   comprasResolvidas.forEach(it=>{
     const sk=(it.sku_ean||'').replace(/\D/g,''),nm=(it.produto_nome||'').toLowerCase().trim();
-    if(sk&&skusNoRes.has(sk))return; if(!sk&&nomesNoRes.has(nm))return;
-    const key=sk||nm; if(!key)return;
+    if(sk&&skusNoRes.has(sk))return;if(!sk&&nomesNoRes.has(nm))return;
+    const key=sk||nm;if(!key)return;
     if(!orfasMap[key])orfasMap[key]={...it,qtd_xml:0};
     orfasMap[key].qtd_xml+=(Number(it.qtd_xml)||0);
   });
