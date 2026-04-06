@@ -1703,150 +1703,58 @@ let _vpPendentes = [];      // itens ainda sem vínculo
 
 async function verificarItensXml(itens) {
   if (!itens || !itens.length) return;
-
-  // 1. Carrega produtos e vínculos confirmados em paralelo
   const [resProd, resVinc] = await Promise.all([
-    db.from('produtos').select('sku_ean,descricao,categoria,fator_conversao').eq('ativo', true).order('descricao'),
+    db.from('produtos').select('sku_ean,descricao,categoria,fator_conversao,ean_alternativo').eq('ativo', true),
     db.from('nf_equivalencias').select('*').eq('confirmado', true)
   ]);
-  _vpEstoque  = resProd.data  || [];
-  _vpVinculos = resVinc.data  || [];
-
-  // Mapas para lookup rápido
-  const mapEanEstoque  = {};  // ean → produto cadastrado
-  const mapNomeVinculo = {};  // nf_nome normalizado → vínculo
-  const mapEanVinculo  = {};  // nf_ean → vínculo
-
-  _vpEstoque.forEach(p  => { if(p.sku_ean) mapEanEstoque[p.sku_ean.trim()] = p; });
-  _vpVinculos.forEach(v => {
-    if(v.nf_nome)  mapNomeVinculo[normalizar(v.nf_nome)] = v;
-    if(v.nf_ean )  mapEanVinculo[v.nf_ean.trim()]        = v;
+  _vpEstoque  = resProd.data || [];
+  _vpVinculos = resVinc.data || [];
+  const nEAN = (e) => (e||'').replace(/\D/g,'').replace(/^0+/,'') || '';
+  const mapEanProd={}, mapEanAlt={}, mapEanVinc={}, mapNomeVinc={};
+  _vpEstoque.forEach(p => {
+    if(p.sku_ean) mapEanProd[nEAN(p.sku_ean)]=p;
+    if(p.ean_alternativo) mapEanAlt[nEAN(p.ean_alternativo)]=p;
   });
-
-  // 2. Classifica cada item
-  const reconhecidos = [];
-  const desconhecidos = [];
-
-  for (const it of itens) {
-    const ean   = (it.cEAN || '').trim();
-    const nome  = (it.xProd || '').trim();
-    const nomeN = normalizar(nome);
-
-    // Prioridade 1: EAN bate direto no estoque
-    if (ean && mapEanEstoque[ean]) {
-      const prod = mapEanEstoque[ean];
-      it._status   = 'ok_ean';
-      it._prodEan  = ean;
-      it._prodNome = prod.descricao;
-      it._fator    = prod.fator_conversao || 1;
-      reconhecidos.push(it);
-      continue;
+  _vpVinculos.forEach(v => {
+    if(v.nf_ean)  mapEanVinc[nEAN(v.nf_ean)]=v;
+    if(v.nf_nome) mapNomeVinc[normalizar(v.nf_nome)]=v;
+  });
+  const reconhecidos=[], desconhecidos=[];
+  for(const it of itens){
+    const ean  = nEAN(it.cEAN||it.sku_ean||'');
+    const nome = (it.xProd||it.produto_nome||'').trim();
+    const nomeN= normalizar(nome);
+    let vinculo= null;
+    if(ean)             vinculo = mapEanVinc[ean]||null;
+    if(!vinculo&&nomeN) vinculo = mapNomeVinc[nomeN]||null;
+    if(!vinculo&&ean&&mapEanProd[ean]){
+      const p=mapEanProd[ean];
+      it._status='ok_ean';it._prodEan=p.sku_ean;it._prodNome=p.descricao;it._fator=p.fator_conversao||1;
+      reconhecidos.push(it);continue;
     }
-    // Prioridade 2: EAN bate em vínculo aprendido
-    if (ean && mapEanVinculo[ean]) {
-      const v = mapEanVinculo[ean];
-      it._status   = 'ok_vinculo';
-      it._prodEan  = v.estoque_ean;
-      it._prodNome = v.estoque_nome || v.nf_nome;
-      it._fator    = v.fator_conversao || 1;
-      reconhecidos.push(it);
-      continue;
+    if(!vinculo&&ean&&mapEanAlt[ean]){
+      const p=mapEanAlt[ean];
+      it._status='ok_ean_alt';it._prodEan=p.sku_ean;it._prodNome=p.descricao;it._fator=p.fator_conversao||1;
+      reconhecidos.push(it);continue;
     }
-    // Prioridade 3: Nome bate em vínculo aprendido (exato normalizado)
-    if (nomeN && mapNomeVinculo[nomeN]) {
-      const v = mapNomeVinculo[nomeN];
-      it._status   = 'ok_vinculo';
-      it._prodEan  = v.estoque_ean;
-      it._prodNome = v.estoque_nome || v.nf_nome;
-      it._fator    = v.fator_conversao || 1;
-      reconhecidos.push(it);
-      continue;
+    if(vinculo){
+      it._status='ok_vinculo';it._prodEan=vinculo.estoque_ean;it._prodNome=vinculo.estoque_nome||vinculo.nf_nome;it._fator=vinculo.fator_conversao||1;
+      reconhecidos.push(it);continue;
     }
-
-    // Prioridade 4: Busca parcial — nome da NF contém o nf_nome do vínculo
-    //   ou o nf_nome do vínculo contém o nome da NF (substring bidirecional)
-    //   Ex: "BUDWEISER OW 330ML CX C/24" já foi vinculado como "BUDWEISER OW 330ML CX C/24"
-    //       mas numa nova NF veio "BUDWEISER OW 330ML CX C/24 NPAL" → ainda reconhece
-    let vinculoParcial = null;
-    for (const v of _vpVinculos) {
-      const vNomeN = normalizar(v.nf_nome || '');
-      if (!vNomeN) continue;
-      // Verifica se um contém o outro (pelo menos 10 chars para evitar falso positivo)
-      if (vNomeN.length >= 10 && (nomeN.includes(vNomeN) || vNomeN.includes(nomeN))) {
-        vinculoParcial = v;
-        break;
-      }
-      // Verifica se EAN da NF bate com estoque_ean do vínculo (mesmo produto, embalagem diferente)
-      if (ean && v.estoque_ean && ean === v.estoque_ean) {
-        vinculoParcial = v;
-        break;
-      }
-    }
-    if (vinculoParcial) {
-      it._status   = 'ok_vinculo_parcial';
-      it._prodEan  = vinculoParcial.estoque_ean;
-      it._prodNome = vinculoParcial.estoque_nome || vinculoParcial.nf_nome;
-      it._fator    = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : (vinculoParcial.fator_conversao || 1);
-      reconhecidos.push(it);
-      continue;
-    }
-
-    // Prioridade 5: Fuzzy matching com score alto (≥ 35%) → reconhece automaticamente
-    //   Salva o vínculo novo em background para as próximas vezes
-    const sugestao = fuzzyMatch(nome, _vpEstoque);
-    if (sugestao) {
-      it._status   = 'ok_fuzzy';
-      it._prodEan  = sugestao.sku_ean;
-      it._prodNome = sugestao.descricao;
-      it._fator    = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : (sugestao.fator_conversao || 1);
-      reconhecidos.push(it);
-      // Salva vínculo em background para não perguntar de novo na próxima NF
-      db.from('nf_equivalencias').upsert({
-        nf_ean:          ean || null,
-        nf_nome:         nome,
-        estoque_ean:     sugestao.sku_ean,
-        estoque_nome:    sugestao.descricao,
-        fator_conversao: it._fator,
-        unidade_nf:      it.uCom || 'un',
-        confirmado:      false  // marcado como não-confirmado para revisão posterior
-      }, {onConflict:'nf_nome', ignoreDuplicates:true}).then(()=>{});
-      continue;
-    }
-
-    // Prioridade 6: Produto genuinamente desconhecido → pede vinculação
-    it._status    = 'pendente';
-    it._sugestao  = null;
-    it._prodEan   = '';
-    it._prodNome  = '';
-    it._fator     = detectarFatorNome(nome) > 1 ? detectarFatorNome(nome) : 1;
+    it._status='pendente';it._prodEan='';it._prodNome='';it._fator=detectarFatorNome(nome)>1?detectarFatorNome(nome):1;
     desconhecidos.push(it);
   }
-
-  _vpPendentes = desconhecidos;
-
-  // 3. Exibe o resultado
-  const painel = $('vinculos-pendentes');
-  if (desconhecidos.length === 0) {
-    // Tudo reconhecido — mostra toast e esconde painel
-    painel.style.display = 'none';
-    const nAuto = reconhecidos.filter(it=>it._status==='ok_fuzzy'||it._status==='ok_vinculo_parcial').length;
-    const msg = nAuto > 0
-      ? `✓ Todos os ${itens.length} produtos identificados! (${nAuto} por similaridade)`
-      : `✓ Todos os ${itens.length} produtos identificados automaticamente!`;
-    toast(msg, 'var(--green)');
-    return;
+  _vpPendentes=desconhecidos;
+  if(desconhecidos.length>0){
+    renderPorteiro(reconhecidos,desconhecidos);
+    toast('Aviso: '+desconhecidos.length+' produto(s) sem vinculo cadastrado','var(--amber)');
+  } else {
+    const pv=document.getElementById('aud-port');
+    if(pv)pv.style.display='none';
+    if(reconhecidos.length) toast('Porteiro: todos os '+reconhecidos.length+' itens reconhecidos','var(--green)');
   }
-
-  // Mostra painel apenas com produtos genuinamente desconhecidos
-  painel.style.display = 'block';
-  painel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  $('vp-badge').textContent = desconhecidos.length + ' pendente(s)';
-  $('vp-sub').textContent = `${reconhecidos.length} de ${itens.length} identificados automaticamente · ${desconhecidos.length} produto(s) novo(s) precisam de vinculação`;
-  renderVpLista(desconhecidos);
-  toast(`⚠️ ${desconhecidos.length} produto(s) novo(s) precisam ser vinculados`, 'var(--amber)');
 }
 
-// Normaliza string para comparação
 function normalizar(s) {
   return (s || '').toLowerCase()
     .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -2826,7 +2734,7 @@ async function processarAud(){
         ...it,
         sku_ean: eq.estoque_ean,           // usa EAN do ESTOQUE (interno)
         produto_nome: eq.estoque_nome||it.produto_nome,
-        qtd_xml: it.qtd_xml*(eq.fator_conversao||1) // aplica fator de conversão
+        qtd_xml: (detectarFatorNome(it.produto_nome||'')>1)?it.qtd_xml:it.qtd_xml*(eq.fator_conversao||1)
       };
     }
     return it;
@@ -2894,10 +2802,7 @@ async function processarAud(){
     const qA=avarias.filter(match).reduce((s,a)=>s+(Number(a.quantidade)||0),0);
 
     // O PosicaoEstoque já inclui a compra → desconta para não duplicar
-    const qI_arquivo=Number(ini2.quantidade)||0;
-    const qI=qC>0?Math.max(0,qI_arquivo-qC):qI_arquivo;
-
-    // Saldo Lógico = (Qtd Inicial + Compras) - (Vendas + Avarias)
+    const qI=Number(ini2.quantidade)||0;
     const saldoLogico=(qI+qC)-(qV+qA);
 
     const fn=final.find(match);
